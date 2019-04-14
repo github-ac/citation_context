@@ -22,8 +22,14 @@ For each citation in each citing article, index:
 
 Articles are parsed in multiple processes, and data is indexed in bulk.
 
-
 ### list most cited titles
 ```
 citation_context# python most_common_titles.py --help
 ```
+
+### print contexts for all variants of a given title
+```
+citation_context# python title_citation_contexts.py --help
+```
+Given a title, all related title/pub_id pairs are collected and their citation context is returned.
+
