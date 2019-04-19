@@ -2,6 +2,7 @@ import json
 import argparse
 from bs4 import BeautifulSoup
 from elasticsearch import Elasticsearch
+from elasticsearch_dsl import Search, Q
 
 def args_parse():
     description = ''' Finds all title/pub_id variants for a given title,
@@ -51,19 +52,10 @@ def get_items(items_in, label_in, label_out, index, max_buckets=1000):
     '''
     if not isinstance(items_in, list):
         items_in = [items_in]
-    body = {'query': {'constant_score': {
-                        'filter': {'terms': {f'{label_in}.keyword': items_in}}
-                       }
-                     },
-            'size': 0,
-            'aggs': {'group_by_state': {
-                        'terms': {'field': f'{label_out}.keyword',
-                                  'size': max_buckets}
-                        }
-                    }
-           }
-    body = json.dumps(body)
-    res = es.search(index=index, body=body)
+    s = Search(using=es, index=index)[:0]
+    s = s.query('constant_score', filter=Q('terms', **{f'{label_in}.keyword': items_in}))
+    s.aggs.bucket('group_by_state', 'terms', field=f'{label_out}.keyword', size=max_buckets)
+    res = s.execute()
     buckets = res['aggregations']['group_by_state']['buckets']
     items_out = [b['key'] for b in buckets if b['key']]
     return items_out
@@ -106,14 +98,9 @@ def get_citations(title, index, size=10):
     ''' Given a title, find all citations as (citing article file, ref_id)
     '''
     titles = recurse_titles([title], index)
-    body = {'query': {'constant_score': {
-                           'filter': {'terms': {'title.keyword': titles}}
-                        }
-                      },
-            'size': size,
-           }
-    body = json.dumps(body)
-    res = es.search(index=index, body=body)
+    s = Search(using=es, index=index)[:size]
+    s = s.query('constant_score', filter=Q('terms', **{'title.keyword': titles}))
+    res = s.execute()
     citations = [(hit['_source']['file'], hit['_source']['ref_id']) for hit in res['hits']['hits']]
     return citations
 

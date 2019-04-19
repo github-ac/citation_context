@@ -1,6 +1,7 @@
 import json
 import argparse
 from elasticsearch import Elasticsearch
+from elasticsearch_dsl import Search
 
 def args_parse():
     description = ''' Prints the n most cited titles
@@ -24,14 +25,8 @@ def args_parse():
 if __name__ == '__main__':
     args = args_parse()
     es = Elasticsearch()
-
-    body = {'size': 0,
-            'aggs': {'group_by_state': {'terms': {'field': 'title.keyword',
-                                                  'size': args.n}
-                                       }
-                    }
-           }
-    body = json.dumps(body)
-    res = es.search(index=args.index, body=body)
+    s = Search(using=es, index=args.index)[:0]
+    s.aggs.bucket('group_by_state', 'terms', field='title.keyword', size=args.n)
+    res = s.execute()
     for bucket in res['aggregations']['group_by_state']['buckets']:
         print(bucket['doc_count'], bucket['key'])
