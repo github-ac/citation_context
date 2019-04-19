@@ -1,4 +1,5 @@
 import json
+import re
 import argparse
 from bs4 import BeautifulSoup
 from elasticsearch import Elasticsearch
@@ -36,6 +37,12 @@ def args_parse():
     parser.add_argument('--context_before',
                         dest='context_before',
                         help='Number of context characters before citation.',
+                        type=int,
+                        default=100,
+                       )
+    parser.add_argument('--context_after',
+                        dest='context_after',
+                        help='Number of context characters after citation.',
                         type=int,
                         default=100,
                        )
@@ -104,24 +111,60 @@ def get_citations(title, index, size=10):
     citations = [(hit['_source']['file'], hit['_source']['ref_id']) for hit in res['hits']['hits']]
     return citations
 
-def ref_context(ref_txt, max_before):
+def remove_brackets(text):
+    ''' Remove round or square brackets and their content.
+        See https://stackoverflow.com/a/14599280 for original regex
+    '''
+    re_complete = '[\(\[].*?[\)\]]' # complete bracket pairs
+    re_close = '[\(\[].*' # leftover close bracket
+    re_open = '.*[\)\]]' # leftover open bracket
+    re_brackets = re.compile('|'.join([re_complete, re_close, re_open]))
+    text = re_brackets.sub('', text)
+    return text
+
+def siblings_context(siblings, context_len):
+    ''' Collect clean sibling texts
+        Args: siblings: list of BeautifulSoup siblings
+              context_len: max number of characters to return
+        Returns: list of strings
+    '''
+    sibling_texts = []
+    for sib in siblings:
+        try:
+            text = sib.strip()
+        except: # fails if it's a tag
+            continue
+        text = remove_brackets(text)
+        sibling_texts.append(text)
+        if len(''.join(sibling_texts)) >= context_len:
+            break
+    return sibling_texts
+
+def prev_context(ref_txt, context_len):
+    ''' Extracts clean text before a reference
+    '''
+    prev_texts = siblings_context(ref_txt.previous_siblings, context_len)
+    prev_text = ''.join(prev_texts[::-1]).strip()
+    prev_text = prev_text[-context_len:]
+    return prev_text
+
+def next_context(ref_txt, context_len):
+    ''' Extracts clean text after a reference
+    '''
+    next_texts = siblings_context(ref_txt.next_siblings, context_len)
+    next_text = ''.join(next_texts).strip()
+    next_text = next_text[:context_len]
+    return next_text
+
+def ref_context(ref_txt, max_before, max_after):
     ''' Extract context around an xref tag within the main text of an article.
         Args: ref_txt: BeautifulSoup tag
               max_before: context length, as number of characters before xref
+              max_after: context length, as number of characters after xref
     '''
-    context = ''
-    for sib in ref_txt.previous_siblings:
-        try:
-            text = sib.strip()
-        except:
-            continue
-        context = text + context
-        if len(context) >= max_before:
-            break
-    context = context.replace('\n', '')
-    if context.endswith('['):
-        context = context[:-1]
-    context = context[-max_before:].strip()
+    context_before = prev_context(ref_txt, max_before)
+    context_after = next_context(ref_txt, max_after)
+    context = f'{context_before}<XREF>{context_after}'
     return context
 
 if __name__ == '__main__':
@@ -133,11 +176,10 @@ if __name__ == '__main__':
         with open(article_path, 'rb') as fh:
             content = fh.read().decode('utf-8')
         soup = BeautifulSoup(content, features='html.parser')
-
         ref_txts = soup.find_all('xref', attrs={'ref-type': 'bibr', 'rid': ref_id})
         if not ref_txts:
             continue
         for ref_txt in ref_txts:
-            sentence = ref_context(ref_txt, max_before=args.context_before)
-            if sentence:
-                print(sentence)
+            context = ref_context(ref_txt, args.context_before, args.context_after)
+            if context:
+                print(context)
