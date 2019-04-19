@@ -122,6 +122,12 @@ def remove_brackets(text):
     text = re_brackets.sub('', text)
     return text
 
+def extract_words(text):
+    ''' Only return alphanumeric characters
+    '''
+    words = re.findall(r'\w+', text)
+    return ' '.join(words)
+
 def siblings_context(siblings, context_len):
     ''' Collect clean sibling texts
         Args: siblings: list of BeautifulSoup siblings
@@ -135,8 +141,10 @@ def siblings_context(siblings, context_len):
         except: # fails if it's a tag
             continue
         text = remove_brackets(text)
-        sibling_texts.append(text)
-        if len(''.join(sibling_texts)) >= context_len:
+        text = extract_words(text)
+        if text:
+            sibling_texts.append(text)
+        if len(' '.join(sibling_texts)) >= context_len:
             break
     return sibling_texts
 
@@ -144,7 +152,7 @@ def prev_context(ref_txt, context_len):
     ''' Extracts clean text before a reference
     '''
     prev_texts = siblings_context(ref_txt.previous_siblings, context_len)
-    prev_text = ''.join(prev_texts[::-1]).strip()
+    prev_text = ' '.join(prev_texts[::-1]).strip()
     prev_text = prev_text[-context_len:]
     return prev_text
 
@@ -152,7 +160,7 @@ def next_context(ref_txt, context_len):
     ''' Extracts clean text after a reference
     '''
     next_texts = siblings_context(ref_txt.next_siblings, context_len)
-    next_text = ''.join(next_texts).strip()
+    next_text = ' '.join(next_texts).strip()
     next_text = next_text[:context_len]
     return next_text
 
