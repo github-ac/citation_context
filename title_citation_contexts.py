@@ -133,9 +133,9 @@ def remove_formatting(text):
     return text
 
 def extract_words(text):
-    ''' Only return alphanumeric characters
+    ''' Only return a subset of characters
     '''
-    words = re.findall(r'\w+', text)
+    words = re.findall(r'[A-Za-z0-9.,]+', text)
     return ' '.join(words)
 
 def siblings_context(siblings, context_len):
