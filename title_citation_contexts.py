@@ -118,8 +118,9 @@ def remove_brackets(text):
     re_complete = '[\(\[].*?[\)\]]' # complete bracket pairs
     re_close = '[\(\[].*' # leftover close bracket
     re_open = '.*[\)\]]' # leftover open bracket
-    re_brackets = re.compile('|'.join([re_complete, re_close, re_open]))
-    text = re_brackets.sub('', text)
+    text = re.sub(re_complete, '', text)
+    text = re.sub(re_close, '', text)
+    text = re.sub(re_open, '', text)
     return text
 
 def extract_words(text):
