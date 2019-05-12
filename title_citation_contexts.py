@@ -123,6 +123,15 @@ def remove_brackets(text):
     text = re.sub(re_open, '', text)
     return text
 
+def remove_formatting(text):
+    tags = ['i', 'italic', 'b', 'bold', 'u', 'underline', 'sc',
+            'emphasis', 'sub', 'sup',
+           ]
+    for tag in tags:
+        text = text.replace(f'<{tag}>', '')
+        text = text.replace(f'</{tag}>', '')
+    return text
+
 def extract_words(text):
     ''' Only return alphanumeric characters
     '''
@@ -184,6 +193,7 @@ if __name__ == '__main__':
         article_path = args.data_dir + filename
         with open(article_path, 'rb') as fh:
             content = fh.read().decode('utf-8')
+        content = remove_formatting(content)
         soup = BeautifulSoup(content, features='html.parser')
         ref_txts = soup.find_all('xref', attrs={'ref-type': 'bibr', 'rid': ref_id})
         if not ref_txts:
