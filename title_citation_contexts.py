@@ -213,4 +213,4 @@ if __name__ == '__main__':
         for ref_txt in ref_txts:
             context = ref_context(ref_txt, args.context_before, args.context_after, nlp)
             if context:
-                print(context)
+                print(context + '\n')
