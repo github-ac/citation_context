@@ -37,7 +37,7 @@ def args_parse():
                        )
     parser.add_argument('--n_articles',
                         dest='n_articles',
-                        help='Maximum number or articles to parse',
+                        help='Maximum number of articles to parse',
                         type=int,
                         default=10000,
                        )
