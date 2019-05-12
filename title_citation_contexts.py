@@ -4,6 +4,7 @@ import argparse
 from bs4 import BeautifulSoup
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search, Q
+import spacy
 
 def args_parse():
     description = ''' Finds all title/pub_id variants for a given title,
@@ -38,13 +39,13 @@ def args_parse():
                         dest='context_before',
                         help='Number of context characters before citation.',
                         type=int,
-                        default=100,
+                        default=500,
                        )
     parser.add_argument('--context_after',
                         dest='context_after',
                         help='Number of context characters after citation.',
                         type=int,
-                        default=100,
+                        default=500,
                        )
     args = parser.parse_args()
     return args
@@ -174,20 +175,31 @@ def next_context(ref_txt, context_len):
     next_text = next_text[:context_len]
     return next_text
 
-def ref_context(ref_txt, max_before, max_after):
+def ref_context(ref_txt, max_before, max_after, nlp):
     ''' Extract context around an xref tag within the main text of an article.
         Args: ref_txt: BeautifulSoup tag
               max_before: context length, as number of characters before xref
               max_after: context length, as number of characters after xref
     '''
     context_before = prev_context(ref_txt, max_before)
+    doc = nlp(context_before)
+    before = ''
+    for before in doc.sents:
+        pass
+
     context_after = next_context(ref_txt, max_after)
-    context = f'{context_before}<XREF>{context_after}'
+    doc = nlp(context_after)
+    try:
+        after = next(doc.sents)
+    except StopIteration:
+        after = ''
+    context = f'{before}<XREF>{after}'
     return context
 
 if __name__ == '__main__':
     args = args_parse()
     es = Elasticsearch()
+    nlp = spacy.load('en_core_web_sm')
     citations = get_citations(args.title, index=args.index, size=args.n)
     for filename, ref_id in citations:
         article_path = args.data_dir + filename
@@ -199,6 +211,6 @@ if __name__ == '__main__':
         if not ref_txts:
             continue
         for ref_txt in ref_txts:
-            context = ref_context(ref_txt, args.context_before, args.context_after)
+            context = ref_context(ref_txt, args.context_before, args.context_after, nlp)
             if context:
                 print(context)

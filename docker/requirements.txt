@@ -2,4 +2,5 @@ beautifulsoup4==4.7.1
 elasticsearch==6.3.1
 elasticsearch-dsl==6.3.1
 requests==2.21.0
+spacy==2.1.4
 tqdm==4.31.1
