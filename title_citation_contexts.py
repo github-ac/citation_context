@@ -50,7 +50,7 @@ def args_parse():
     args = parser.parse_args()
     return args
 
-def get_items(items_in, label_in, label_out, index, max_buckets=1000):
+def get_items(items_in, label_in, label_out, es, index, max_buckets=1000):
     ''' Returns all pub_ids for a given title, or all titles for a pub_id
         Args: items_in: str or list
               label_in: title or pub_id. Field of items_in
@@ -68,44 +68,46 @@ def get_items(items_in, label_in, label_out, index, max_buckets=1000):
     items_out = [b['key'] for b in buckets if b['key']]
     return items_out
 
-def get_titles(items_in, index, max_buckets=1000):
+def get_titles(items_in, es, index, max_buckets=1000):
     ''' Returns all titles for a given list of pub_ids
     '''
     return get_items(items_in,
                      label_in='pub_id',
                      label_out='title',
+                     es=es,
                      index=index,
                      max_buckets=max_buckets,
                     )
 
-def get_pub_ids(items_in, index, max_buckets=1000):
+def get_pub_ids(items_in, es, index, max_buckets=1000):
     ''' Returns all pub_ids for a given list of titles
     '''
     return get_items(items_in,
                      label_in='title',
                      label_out='pub_id',
+                     es=es,
                      index=index,
                      max_buckets=max_buckets,
                     )
 
-def recurse_titles(titles_in, index):
+def recurse_titles(titles_in, es, index):
     ''' Given a list of titles, find all corresponding pub_ids.
         Then for all such pub_ids find all titles.
         Continue recursively until no more titles are added.
     '''
     titles = set(titles_in)
-    pub_ids = get_pub_ids(list(titles_in), index)
+    pub_ids = get_pub_ids(list(titles_in), es, index)
     pub_ids = [p for p in pub_ids if '/' in p] # discard unreliable numeric id's
-    titles.update(get_titles(pub_ids, index))
+    titles.update(get_titles(pub_ids, es, index))
     if len(titles) == len(titles_in):
         return list(titles)
     else:
-        return recurse_titles(titles, index)
+        return recurse_titles(titles, es, index)
 
-def get_citations(title, index, size=10):
+def get_citations(title, es, index, size=10):
     ''' Given a title, find all citations as (citing article file, ref_id)
     '''
-    titles = recurse_titles([title], index)
+    titles = recurse_titles([title], es, index)
     s = Search(using=es, index=index)[:size]
     s = s.query('constant_score', filter=Q('terms', **{'title.keyword': titles}))
     res = s.execute()
@@ -200,7 +202,7 @@ if __name__ == '__main__':
     args = args_parse()
     es = Elasticsearch()
     nlp = spacy.load('en_core_web_sm')
-    citations = get_citations(args.title, index=args.index, size=args.n)
+    citations = get_citations(args.title, es, index=args.index, size=args.n)
     for filename, ref_id in citations:
         article_path = args.data_dir + filename
         with open(article_path, 'rb') as fh:
