@@ -7,6 +7,7 @@ import requests
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 from elasticsearch import Elasticsearch
+from elasticsearch_dsl import Search, Q
 
 def args_parse():
     description = '''parse xml articles and index citations from ref-list in elasticsearch.
@@ -76,6 +77,12 @@ def bulk_append(data, new, index):
     data += '\n{"index": {"_index": "%s", "_type": "type"}}\n%s\n' % (index, json.dumps(new))
     return data
 
+def file_in_index(filename, index):
+    s = Search(using=es, index=index)
+    s = s.query('constant_score', filter=Q('terms', **{'file.keyword': [filename]}))
+    res = s.execute()
+    return res.hits.total['value'] > 0
+
 def process(package):
     ''' Function called by multiple processes.
         Receives a list of article paths and indexes all citations at once.
@@ -83,6 +90,8 @@ def process(package):
     args = args_parse()
     data = ''
     for article in package:
+        if file_in_index(article.split(args.data_dir)[1], args.index):
+            continue
         try:
             with open(article, 'rb') as fh:
                 content = fh.read().decode('utf-8')
